@@ -1,30 +1,69 @@
 name: CI Pipeline
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
-      - dev
+    push:
+        branches:
+            - main
+            - develop
+    pull_request:
+        branches:
+            - main
+            - dev
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
+    lint:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: checkout code
-        uses: actions/checkout@v4
+        steps:
+            - name: checkout code
+              uses: actions/checkout@v4
 
-      - name: setup node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+            - name: setup node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
 
-      - name: install dependencies
-        run: npm ci
+            - name: install dependencies
+              run: npm ci
 
-      - name: run linter
-        run: npm run lint
+            - name: run linter
+              run: npm run lint
+    # 2 test
+
+    test:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: checkout code
+              uses: actions/checkout@v4
+
+            - name: setup node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+
+            - name: install dependencies
+              run: npm ci
+
+            - name: run test
+              run: npm test
+
+    #build
+    build:
+        runs-on: ubuntu-latest
+        needs: [lint, test]
+
+        steps:
+            - name: checkout code
+              uses: actions/checkout@v4
+
+            - name: setup node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+
+            - name: install dependencies
+              run: npm ci
+
+            - name: build
+              run: npm run build
