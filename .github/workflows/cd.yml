@@ -1,0 +1,54 @@
+# Deploy to EC2 after CI passes
+name: CD Deploy
+
+# Run automatically once the "CI Pipeline" workflow finishes on main
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Only deploy when the CI Pipeline actually succeeded (not on failure/cancel)
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3 # Connects to EC2 to run commands
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            # Make node/npm/pm2 available in this non-interactive shell (nvm installs)
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            APP_DIR="$HOME/ci-cd"
+            REPO="https://github.com/mazenessam77/ci-cd.git"
+
+            # First deploy clones the repo; later deploys reset to the latest main
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone "$REPO" "$APP_DIR"
+            fi
+            cd "$APP_DIR"
+            git fetch --all
+            git reset --hard origin/main
+
+            # Install dependencies and build the NestJS app
+            npm ci
+            npm run build
+
+            # Start the app under pm2, or reload it if it's already running
+            if pm2 describe ci-cd > /dev/null 2>&1; then
+              pm2 reload ci-cd --update-env
+            else
+              pm2 start dist/main.js --name ci-cd
+            fi
+            pm2 save
